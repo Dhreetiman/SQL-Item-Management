@@ -15,7 +15,7 @@ const validateUser = async (req, res, next) => {
             fullname: Joi.string().max(255).required(),
             gender: Joi.string().valid('male', 'female', 'other').required(),
             address: Joi.string().max(255),
-            is_email_verified: Joi.boolean().default(false),
+            // is_email_verified: Joi.boolean().default(false),
         });
 
         const { error } = userSchema.validate(req.body, { abortEarly: false });

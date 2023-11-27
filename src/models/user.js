@@ -12,6 +12,7 @@ const User = sequelize.define('User', {
   username: {
     type: DataTypes.STRING,
     allowNull: false,
+    unique: true,
   },
   email: {
     type: DataTypes.STRING,
@@ -38,7 +39,13 @@ const User = sequelize.define('User', {
     type: DataTypes.BOOLEAN,
     allowNull: false,
     defaultValue: false,
+  },
+  twoFactorAuth: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
   }
 });
 
 module.exports = User;
+
