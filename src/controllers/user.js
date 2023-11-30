@@ -4,13 +4,14 @@ const sequelize = new Sequelize(require('../configs/db').development);
 let bcrypt = require('bcrypt');
 let sendEmail = require('../utils/sendEmail');
 let jwt = require('jsonwebtoken')
+let tokenService = require('../services/token.service');
 
 exports.registerUser = async (req, res) => {
     try {
 
         const { username, email, password, fullname, gender, address } = req.body;
 
-        // let sql = `INSERT INTO Users (username, email, password, fullname, gender, address) VALUES ($username, $email, $password, $fullname, $gender, $address)`;
+        // let sql = `INSERT INTO User (username, email, password, fullname, gender, address) VALUES ($username, $email, $password, $fullname, $gender, $address)`;
         // await sequelize.query(sql, {
         //     bind: { username, email, password, fullname, gender, address: address ?? null },
         //     type: Sequelize.QueryTypes.INSERT
@@ -45,7 +46,6 @@ exports.registerUser = async (req, res) => {
         .then(result => console.log(result))
         .catch(error => console.error(error));
 
-        let token = await jwt.sign({ otp }, process.env.JWT_SECRET, { expiresIn: '5m' })
         res.setHeader("Token", token);
         return res.status(200).json({
             success: true,

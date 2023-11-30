@@ -4,17 +4,18 @@ const nodemailer = require('nodemailer');
 module.exports = async (emailTo, subject, message) => {
 
   const transporter = nodemailer.createTransport({
-    host: 'sandbox.smtp.mailtrap.io',
-    port: 587,
+    host: 'smtp.gmail.com',
+    port: 465,
+    // secure: true,
     auth: {
-        user: '41e799c6567240',
-        pass: 'ae2dea25569724'
+        user: 'knight2stark@gmail.com',
+        pass: 'ocjz eioq nvxs dwwa'
     }
 });
 
   // Email content
   let mailOptions = {
-    from: 'dhreetiman02@gmail.com',
+    from: 'lucifer@yopmail.com',
     to: emailTo, 
     subject: subject,
     html: message 
