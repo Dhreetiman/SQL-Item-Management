@@ -4,6 +4,8 @@ const httpStatus = require('http-status');
 // const { Token } = require('../models');
 const ApiError = require('../utils/ApiError');
 const Joi = require('joi');
+const { Sequelize } = require('sequelize');
+const sequelize = new Sequelize(require('../configs/db').development);
 
 /**
  * Generate token
@@ -12,12 +14,10 @@ const Joi = require('joi');
  * @param {string} [secret]
  * @returns {string}
  */
-const generateToken = (userId, expires, secret = process.env.JWT_SECRET) => {
-    const payload = {
-        sub: userId,
-        iat: moment().unix(),
-        exp: expires.unix(),
-    };
+const generateToken = (payload, expires, secret = process.env.JWT_SECRET) => {
+
+    payload.iat = moment().unix();
+    payload.exp = expires.unix();
     return jwt.sign(payload, secret);
 };
 
@@ -37,7 +37,7 @@ const saveToken = async (token, userId, expires, type) => {
             token: Joi.string().required(),
             user: Joi.number().integer().required(),
             expires: Joi.date().iso().required(),
-            type: Joi.string().valid('otp_token', 'auth_token', 'refresh_token').required(), // Define valid types
+            type: Joi.string().valid('verifyEmail', 'authToken', 'otpToken').required(), // Define valid types
         });
 
         const dataToValidate = {
@@ -54,15 +54,15 @@ const saveToken = async (token, userId, expires, type) => {
         }
 
 
-        let sql = `INSERT INTO Token (token, user_id, expires, type) VALUES ($token, $user_id, $expires, $type)`;
+        let sql = `INSERT INTO Tokens (token, user_id, expires, type) VALUES ($token, $user_id, $expires, $type)`;
         await sequelize.query(sql, {
-            bind: { token, user_id, expires, type },
+            bind: { token, user_id: user, expires, type },
             type: Sequelize.QueryTypes.INSERT
         })
 
-        
+
     } catch (error) {
-        throw new ApiError(httpStatus.BAD_REQUEST, error);       
+        throw new ApiError(httpStatus.BAD_REQUEST, error);
     }
 };
 
@@ -74,7 +74,11 @@ const saveToken = async (token, userId, expires, type) => {
  */
 const verifyToken = async (token, type) => {
     const payload = jwt.verify(token, config.jwt.secret);
-    const user = await userService.getUserById({ id: payload.sub });
+    let sql = `SELECT * FROM User WHERE id = $userId`;
+    const user = await sequelize.query(sql, {
+        bind: { userId: payload.sub },
+        type: Sequelize.QueryTypes.SELECT
+    })
     if (!user) {
         throw new ApiError(httpStatus.BAD_REQUEST, 'User Not Exists');
     }
@@ -94,19 +98,20 @@ const verifyToken = async (token, type) => {
  * @returns {Promise<Object>}
  */
 const generateAuthTokens = async (user) => {
-    
-    // const accessTokenExpires = moment().add(100000, 'minutes');
-    // const accessToken = generateToken(user.id, accessTokenExpires);
+
+    let payload = {
+        user: user.id,
+    }
 
     const refreshTokenExpires = moment().add(30, 'days');
-    const refreshToken = generateToken(user.id, refreshTokenExpires);
-    await saveToken(refreshToken, user.id, refreshTokenExpires, 'auth_token');
+    const refreshToken = generateToken(payload, refreshTokenExpires);
+    await saveToken(refreshToken, user.id, refreshTokenExpires, 'authToken');
 
     return {
-        access: {
-            token: accessToken,
-            expires: accessTokenExpires.toDate(),
-        },
+        // access: {
+        //     token: accessToken,
+        //     expires: accessTokenExpires.toDate(),
+        // },
         refresh: {
             token: refreshToken,
             expires: refreshTokenExpires.toDate(),
@@ -114,18 +119,45 @@ const generateAuthTokens = async (user) => {
     };
 };
 
-const generateVerifyEmailToken = async (email) => {
-    const user = await userService.getUserByEmail(email, session);
-    if (!user) {
-        throw new ApiError(httpStatus.NOT_FOUND, 'No users found with this email');
-    } else if (user.emailVerified) {
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Email is already Verified');
+const generateVerifyEmailToken = async (email, otp) => {
+    try {
+
+        let sql = `SELECT * FROM User WHERE email = $email`;
+        const user = await sequelize.query(sql, {
+            bind: { email },
+            type: Sequelize.QueryTypes.SELECT
+        })
+        console.log(user)
+        if (user.length === 0) {
+            throw new ApiError(httpStatus.NOT_FOUND, 'No users found with this email');
+        } else if (user[0].is_email_verified === 1) {
+            throw new ApiError(httpStatus.BAD_REQUEST, 'Email is already Verified');
+        }
+        let expires = moment().add(15, 'minutes');
+
+        let expiresDate = new Date(expires);
+        let expiresSequelizeFormat = expiresDate.toISOString().slice(0, 19).replace('T', ' ');
+
+        let payload = {
+            user: user[0].id,
+            otp: otp
+        }
+        const token = generateToken(payload, expires);
+        let sql1 = `DELETE FROM Tokens WHERE user_id = $user_id AND type = 'verifyEmail'`;
+        await sequelize.query(sql1, {
+            bind: { user_id: user[0].id },
+            type: Sequelize.QueryTypes.DELETE
+        })
+        let sql2 = `INSERT INTO Tokens (token, user_id, expires, type) VALUES ($token, $user_id, $expires, $type)`;
+        await sequelize.query(sql2, {
+            bind: { token, user_id: user[0].id, expires: expiresSequelizeFormat, type: 'verifyEmail' },
+            type: Sequelize.QueryTypes.INSERT
+        })
+        return token;
+
+    } catch (error) {
+        throw new ApiError(httpStatus.BAD_REQUEST, error);
     }
-    const expires = moment().add(config.jwt.verifyEmailExpirationMinutes, 'minutes');
-    const token = generateToken(user.id, expires);
-    // await Token.deleteMany({ user, type: 'verifyEmail' });
-    await saveToken(token, user.id, expires, 'verifyEmail');
-    return token;
 };
 
 /**
@@ -150,8 +182,8 @@ const generateResetPasswordToken = async (email) => {
  * @param token
  * @returns {Promise<Object>}
  */
-const getAuthTokens = async (user, token) => {
-    const tokenDoc = await Token.findOne({ type: 'refresh', user: user.id, blacklisted: false });
+const getTokens = async (user, token) => {
+    let sql = `SELECT * FROM Tokens WHERE user_id = $user_id AND type = $type`;
     if (!tokenDoc) {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Token not found');
     }
@@ -179,5 +211,6 @@ const invalidateToken = async (token) => {
 };
 
 module.exports = {
-    generateAuthTokens, 
+    generateAuthTokens,
+    generateVerifyEmailToken
 };

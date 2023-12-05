@@ -35,6 +35,31 @@ const validateUser = async (req, res, next) => {
     }
 }
 
+let verificationEmailValidate = async (req, res, next) => {
+    try {
+
+        const dataToValidate = Joi.object({
+            email: Joi.string().email({ tlds: { allow: false } }).required(),
+        });
+
+        const { error } = dataToValidate.validate(req.body, { abortEarly: false });
+
+        if (error) {
+            const message = error.details.map(i => i.message).join(',');
+            res.status(400).json({ error: message });
+        } else {
+            next();
+        }
+        
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+}
+
 module.exports = {
-    validateUser
+    validateUser,
+    verificationEmailValidate
 };
