@@ -183,21 +183,19 @@ const generateResetPasswordToken = async (email) => {
  * @returns {Promise<Object>}
  */
 const getTokens = async (user, token) => {
-    let sql = `SELECT * FROM Tokens WHERE user_id = $user_id AND type = $type`;
+    let sql = `SELECT * FROM Tokens WHERE user_id = $user_id AND token = $token`;
+    const tokenDoc = await sequelize.query(sql, {
+        bind: { user_id: user.id, type: token },
+        type: Sequelize.QueryTypes.SELECT
+    })
     if (!tokenDoc) {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Token not found');
     }
     const { exp } = jwt.verify(token, config.jwt.secret);
 
     return {
-        access: {
-            token,
-            expires: moment.unix(exp).toDate(),
-        },
-        refresh: {
-            token: tokenDoc.token,
-            expires: tokenDoc.expires,
-        },
+        token: tokenDoc.token,
+        expires: moment.unix(exp).toDate(),
     };
 };
 
@@ -212,5 +210,6 @@ const invalidateToken = async (token) => {
 
 module.exports = {
     generateAuthTokens,
-    generateVerifyEmailToken
+    generateVerifyEmailToken,
+    getTokens
 };
