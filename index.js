@@ -3,6 +3,7 @@ const morgan = require("morgan");
 const colors = require("colors");
 let http = require('http');
 require('dotenv').config()
+const requestIp = require('request-ip');
 const host = '0.0.0.0';
 const db_config = require('./src/configs/db');
 
@@ -17,8 +18,8 @@ let server = http.createServer(app);
 app.use(express.json());
 app.use(morgan('dev'))
 app.set('port', PORT);
+app.use(requestIp.mw());
 
-console.log(process.env.DB_HOST)
 
 // Create a Sequelize instance
 const sequelize = new Sequelize(db_config.development);
@@ -32,7 +33,11 @@ sequelize.authenticate()
         console.error('Unable to connect to the database:', error);
     });
 
-    
+app.get('/get-ip', (req, res) => {
+    const clientIp = req.clientIp;
+    res.send(`Your IP address is: ${clientIp}`);
+});
+
 // Routes
 app.use('/', require('./src/routes/index'));
 
