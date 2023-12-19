@@ -5,7 +5,7 @@ let http = require('http');
 require('dotenv').config()
 const requestIp = require('request-ip');
 const host = '0.0.0.0';
-const db_config = require('./src/configs/db');
+const db_config = require('./configs/db');
 
 const { Sequelize, DataTypes } = require('sequelize');
 
@@ -19,7 +19,6 @@ app.use(express.json());
 app.use(morgan('dev'))
 app.set('port', PORT);
 app.use(requestIp.mw());
-
 
 // Create a Sequelize instance
 const sequelize = new Sequelize(db_config.development);
@@ -39,7 +38,7 @@ app.get('/get-ip', (req, res) => {
 });
 
 // Routes
-app.use('/', require('./src/routes/index'));
+app.use('/', require('./routes/index'));
 
 
 
