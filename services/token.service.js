@@ -46,14 +46,14 @@ const saveToken = async (token, userId, expires, type) => {
 
         const schema = Joi.object({
             token: Joi.string().required(),
-            user: Joi.number().integer().required(),
+            userId: Joi.number().integer().required(),
             expires: Joi.date().iso().required(),
             type: Joi.string().valid('verifyEmail', 'authToken', 'otpToken').required(), // Define valid types
         });
 
         const dataToValidate = {
             token,
-            user: userId,
+            userId,
             expires,
             type
         };
@@ -67,7 +67,7 @@ const saveToken = async (token, userId, expires, type) => {
 
         let sql = `INSERT INTO Tokens (token, user_id, expires, type) VALUES ($token, $user_id, $expires, $type)`;
         await sequelize.query(sql, {
-            bind: { token, user_id: user, expires, type },
+            bind: { token, user_id: userId, expires, type },
             type: Sequelize.QueryTypes.INSERT
         })
 
@@ -78,32 +78,6 @@ const saveToken = async (token, userId, expires, type) => {
 };
 
 /**
- * Verify token and return token doc (or throw an error if it is not valid)
- * @param {string} token
- * @param {string} type
- * @returns {Promise<Token>}
- */
-const verifyToken = async (token, type) => {
-    const payload = jwt.verify(token, config.jwt.secret);
-    let sql = `SELECT * FROM User WHERE id = $userId`;
-    const user = await sequelize.query(sql, {
-        bind: { userId: payload.sub },
-        type: Sequelize.QueryTypes.SELECT
-    })
-    if (!user) {
-        throw new ApiError(httpStatus.BAD_REQUEST, 'User Not Exists');
-    }
-    if (user.emailVerified && type !== 'resetPassword') {
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Email Already Verified');
-    }
-    const tokenDoc = await Token.findOne({ token, type, user: payload.sub, blacklisted: false });
-    if (!tokenDoc) {
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Token not found');
-    }
-    return tokenDoc;
-};
-
-/**
  * Generate auth tokens
  * @param {User} user
  * @returns {Promise<Object>}
@@ -111,21 +85,26 @@ const verifyToken = async (token, type) => {
 const generateAuthTokens = async (user) => {
 
     let payload = {
-        user: user.id,
+        user: user,
     }
 
-    const refreshTokenExpires = moment().add(30, 'days');
-    const refreshToken = generateToken(payload, refreshTokenExpires);
-    await saveToken(refreshToken, user.id, refreshTokenExpires, 'authToken');
+    const authTokenExpires = moment().add(30, 'days');
+    console.log("authTokenExpires", authTokenExpires)
+    const refreshToken = generateToken(payload, authTokenExpires);
+    console.log("refreshToken", refreshToken)
+    let sql1 = `DELETE FROM Tokens WHERE user_id = $user_id AND type = 'authToken'`;
+    await sequelize.query(sql1, {
+        bind: { user_id: user.id },
+        type: Sequelize.QueryTypes.DELETE
+    })
+    let expiresSequelizeFormat = authTokenExpires.toISOString().slice(0, 19).replace('T', ' ');
+    await saveToken(refreshToken, user.id, expiresSequelizeFormat, 'authToken');
 
     return {
-        // access: {
-        //     token: accessToken,
-        //     expires: accessTokenExpires.toDate(),
-        // },
-        refresh: {
+
+        authToken: {
             token: refreshToken,
-            expires: refreshTokenExpires.toDate(),
+            expires: authTokenExpires.toDate(),
         },
     };
 };
@@ -151,6 +130,7 @@ const generateVerifyEmailToken = async (email, otp) => {
 
         let payload = {
             user: user[0].id,
+            email: email,
             otp: otp
         }
         const token = generateToken(payload, expires);
@@ -177,7 +157,12 @@ const generateVerifyEmailToken = async (email, otp) => {
  * @returns {Promise<string>}
  */
 const generateResetPasswordToken = async (email) => {
-    const user = await userService.getUserByEmail({ email });
+    let sql = `SELECT * FROM User WHERE email = $email`;
+    const user = await sequelize.query(sql, {
+        bind: { email },
+        type: Sequelize.QueryTypes.SELECT
+    })
+
     if (!user) {
         throw new ApiError(httpStatus.NOT_FOUND, 'No users found with this email');
     }
@@ -193,10 +178,10 @@ const generateResetPasswordToken = async (email) => {
  * @param token
  * @returns {Promise<Object>}
  */
-const getTokens = async (user, token) => {
+const getTokens = async (userId, token) => {
     let sql = `SELECT * FROM Tokens WHERE user_id = $user_id AND token = $token`;
     const tokenDoc = await sequelize.query(sql, {
-        bind: { user_id: user.id, type: token },
+        bind: { user_id: userId, type: token },
         type: Sequelize.QueryTypes.SELECT
     })
     if (!tokenDoc) {

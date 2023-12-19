@@ -9,8 +9,8 @@ let tokenService = require('../services/token.service');
 exports.registerUser = async (req, res) => {
     try {
 
-        const { username, email, password, fullname, gender, address } = req.body;
-
+        let { username, email, password, fullname, gender, address } = req.body;
+        password = await bcrypt.hash(password, 10);
         let sql = `INSERT INTO User (username, email, password, fullname, gender, address) VALUES ($username, $email, $password, $fullname, $gender, $address)`;
         await sequelize.query(sql, {
             bind: { username, email, password, fullname, gender, address: address ?? null },
@@ -42,7 +42,7 @@ exports.registerUser = async (req, res) => {
         </html>
 `;
         let token = await tokenService.generateVerifyEmailToken(email, otp);
-        res.setHeader("Token", token);
+
         await sendEmail(email, subject, html)
             .then(result => console.log(result))
             .catch(error => console.error(error));
@@ -100,14 +100,13 @@ exports.sendVerificationEmailAgain = async (req, res) => {
         </body>
         </html>
         `;
-    
+
         let token = await tokenService.generateVerifyEmailToken(email, otp);
-        res.setHeader("Token", token);
 
         await sendEmail(email, subject, html)
             .then(result => console.log(result))
             .catch(error => console.error(error));
-    
+
         return res.status(200).send({
             success: true,
             message: 'Verification email has been sent again. Please check email.',
@@ -125,10 +124,142 @@ exports.sendVerificationEmailAgain = async (req, res) => {
 exports.verifyEmail = async (req, res) => {
     try {
 
-        const { email } = req.body;
-        let sql = `UPDATE Users SET is_email_verified = true WHERE email = $email`;
+        const { email, otp } = req.body;
+        let userSQL = `SELECT * FROM User WHERE email = $email`;
+        let user = await sequelize.query(userSQL, {
+            bind: { email },
+            type: Sequelize.QueryTypes.SELECT
+        })
+        user = user[0]
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'This email is not registered'
+            })
+        }
+        if (user.is_email_verified === 1) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email is already Verified'
+            })
+        }
+
+        let tokenSql = `SELECT token FROM Tokens WHERE user_id = $user_id AND type = 'verifyEmail'`;
+        let token = await sequelize.query(tokenSql, {
+            bind: { user_id: user.id },
+            type: Sequelize.QueryTypes.SELECT
+        })
+        console.log("token", token)
+        const decodedToken = jwt.verify(token[0].token, process.env.JWT_SECRET)
+        console.log("decodedToken", decodedToken)
+
+        if (decodedToken.email !== email) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid token'
+            })
+        }
+        if (decodedToken.otp.toString() !== otp.toString()) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid OTP'
+            })
+        }
+
+        let sql = `UPDATE User SET is_email_verified = true WHERE email = $email`;
+        await sequelize.query(sql, {
+            bind: { email },
+            type: Sequelize.QueryTypes.UPDATE
+        })
+
+        return res.status(200).json({
+            success: true,
+            message: 'Email Verified'
+        })
 
     } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        })
+    }
+}
+
+exports.login = async (req, res) => {
+    try {
+
+        const { email, password } = req.body;
+        let userSQL = `SELECT * FROM User WHERE email = $email`;
+        let user = await sequelize.query(userSQL, {
+            bind: { email },
+            type: Sequelize.QueryTypes.SELECT
+        })
+        user = user[0]
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Incorrect email or password'
+            })
+        }
+        if (!bcrypt.compareSync(password, user.password)) {
+            return res.status(404).json({
+                success: false,
+                message: 'Incorrect email or password'
+            })
+        }
+
+        if (user.is_email_verified === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please verify your email'
+            })
+        }
+
+        const token = await tokenService.generateAuthTokens(user)
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                user,
+                token
+            }
+        })
+
+
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        })
+    }
+}
+
+exports.info = async (req, res) => {
+    try {
+        let { user, clientIp } = req
+        console.log("user", user)
+        let userSQL = `SELECT * FROM User WHERE id = $id`;
+        let userData = await sequelize.query(userSQL, {
+            bind: { id: user.id },
+            type: Sequelize.QueryTypes.SELECT
+        })
+        userData = userData[0]
+        if (!userData) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            })
+        }
+        return res.status(200).json({
+            success: true,
+            data: {
+                user: userData,
+                ip: clientIp
+            }
+        })
+    } catch (error) {
+        console.log(error)
         return res.status(500).json({
             success: false,
             message: error.message

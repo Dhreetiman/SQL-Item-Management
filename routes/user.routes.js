@@ -1,17 +1,22 @@
 let {
     registerUser,
     sendVerificationEmailAgain,
+    verifyEmail,
+    login,
+    info
+
 } = require('../controllers/user');
-const requestIp = require('request-ip')
+
 
 const router = require('express').Router();
 const userValidator = require('../validator/userValidator')
+let auth = require('../middlewares/auth')
 
 router.post('/register', userValidator.validateUser, registerUser);
 router.post('/send-verification', userValidator.verificationEmailValidate, sendVerificationEmailAgain);
-router.get('/ip', (req, res) => {
-    var clientIp = requestIp.getClientIp(req)
-    res.send(`Your IP Address is ${clientIp}.`)
-  })
+
+router.post('/verify-email', userValidator.verifyEmailValidator, verifyEmail)
+router.post('/login', userValidator.loginValidator, login);
+router.get('/info', auth, info);
 
 module.exports = router

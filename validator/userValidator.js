@@ -59,7 +59,60 @@ let verificationEmailValidate = async (req, res, next) => {
     }
 }
 
+let verifyEmailValidator = async (req, res, next) => {
+    try {
+        const dataToValidate = Joi.object({
+            email: Joi.string().email({ tlds: { allow: false } }).required(),
+            otp: Joi.string().required()
+        });
+
+        const { error } = dataToValidate.validate(req.body, { abortEarly: false });
+
+        if (error) {
+            const message = error.details.map(i => i.message).join(',');
+            return res.status(400).json({ error: message });
+        }
+
+        next();
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+}
+
+let loginValidator = async (req, res, next) => {
+    try {
+        const dataToValidate = Joi.object({
+            email: Joi.string().email({ tlds: { allow: false } }).required(),
+            password: Joi.string().regex(passwordRegex).required()
+                .messages({
+                    'string.pattern.base': 'Password must be at least 8 characters long and include at least one letter, one number, and one special character.',
+                }),
+        });
+
+        const { error } = dataToValidate.validate(req.body, { abortEarly: false });
+
+        if (error) {
+            const message = error.details.map(i => i.message).join(',');
+            return res.status(400).json({ error: message });
+        }
+
+        next();
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+}
+
 module.exports = {
     validateUser,
-    verificationEmailValidate
+    verificationEmailValidate,
+    verifyEmailValidator,
+    loginValidator
 };

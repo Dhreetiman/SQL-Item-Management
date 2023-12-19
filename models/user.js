@@ -44,7 +44,11 @@ const User = sequelize.define('User', {
     type: DataTypes.BOOLEAN,
     allowNull: false,
     defaultValue: false,
-  }
+  },
+  // mobileNumber: {
+  //   type: DataTypes.STRING,
+  //   allowNull: false,
+  // }
 });
 
 module.exports = User;
