@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const moment = require('moment');
 const httpStatus = require('http-status');
 // const { Token } = require('../models');
-const ApiError = require('../utils/ApiError');
+// const ApiError = require('../utils/apiError');
 const Joi = require('joi');
 const { Sequelize } = require('sequelize');
 const sequelize = new Sequelize(require('../configs/db').development);
@@ -60,9 +60,8 @@ const saveToken = async (token, userId, expires, type) => {
             type: Sequelize.QueryTypes.INSERT
         })
 
-
     } catch (error) {
-        throw new ApiError(httpStatus.BAD_REQUEST, error);
+        throw error
     }
 };
 
@@ -80,14 +79,14 @@ const verifyToken = async (token, type) => {
         type: Sequelize.QueryTypes.SELECT
     })
     if (!user) {
-        throw new ApiError(httpStatus.BAD_REQUEST, 'User Not Exists');
+        return 'User Not Exists';
     }
     if (user.emailVerified && type !== 'resetPassword') {
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Email Already Verified');
+        return 'Email Already Verified';
     }
     const tokenDoc = await Token.findOne({ token, type, user: payload.sub, blacklisted: false });
     if (!tokenDoc) {
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Token not found');
+        return 'Token not found';
     }
     return tokenDoc;
 };
@@ -129,9 +128,9 @@ const generateVerifyEmailToken = async (email, otp) => {
         })
         console.log(user)
         if (user.length === 0) {
-            throw new ApiError(httpStatus.NOT_FOUND, 'No users found with this email');
+            return 'No users found with this email';
         } else if (user[0].is_email_verified === 1) {
-            throw new ApiError(httpStatus.BAD_REQUEST, 'Email is already Verified');
+            return 'Email is already Verified';
         }
         let expires = moment().add(15, 'minutes');
 
@@ -156,7 +155,7 @@ const generateVerifyEmailToken = async (email, otp) => {
         return token;
 
     } catch (error) {
-        throw new ApiError(httpStatus.BAD_REQUEST, error);
+        throw error;
     }
 };
 
@@ -168,7 +167,7 @@ const generateVerifyEmailToken = async (email, otp) => {
 const generateResetPasswordToken = async (email) => {
     const user = await userService.getUserByEmail({ email });
     if (!user) {
-        throw new ApiError(httpStatus.NOT_FOUND, 'No users found with this email');
+        return 'No users found with this email';
     }
     const expires = moment().add(config.jwt.resetPasswordExpirationMinutes, 'minutes');
     const resetPasswordToken = generateToken(user.id, expires);
@@ -189,7 +188,7 @@ const getTokens = async (user, token) => {
         type: Sequelize.QueryTypes.SELECT
     })
     if (!tokenDoc) {
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Token not found');
+        return 'Token not found';
     }
     const { exp } = jwt.verify(token, config.jwt.secret);
 
@@ -202,7 +201,7 @@ const getTokens = async (user, token) => {
 const invalidateToken = async (token) => {
     const tokenDoc = await Token.findOne({ type: 'refresh', token, blacklisted: false });
     if (!tokenDoc) {
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Token not found');
+        return 'Token not found';
     } else {
         return Token.findByIdAndUpdate(tokenDoc._id, { $set: { blacklisted: true } });
     }
