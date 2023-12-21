@@ -23,6 +23,10 @@ const LoginInfo = sequelize.define('LoginInfo', {
         type: DataTypes.STRING,
         allowNull: false,
     },
+    postalCode: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
     region: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -39,10 +43,18 @@ const LoginInfo = sequelize.define('LoginInfo', {
         type: DataTypes.STRING,
         allowNull: false,
     },
-    security: {
+    timeZone: {
         type: DataTypes.STRING,
         allowNull: false,
     },
+    loginTime: {
+        type: DataTypes.DATE,
+        allowNull: false,
+    },
+    connectionDetails: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    }
 }, {
     tableName: 'LoginInfo', 
 });

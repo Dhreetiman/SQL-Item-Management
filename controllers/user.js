@@ -226,17 +226,21 @@ exports.login = async (req, res) => {
                 //     })
                 // }
                 if (response.data.city !== null) {
-                    let sql = `INSERT INTO LoginInfo (userId, ip, city, region, country_code, longitude, latitude, security) VALUES ($userId, $ip, $city, $region, $country_code, $longitude, $latitude, $security)`;
+                    let sql = `INSERT INTO LoginInfo (userId, ip, city, region, postalCode, country_code, longitude, latitude, timeZone, loginTime, localLoginTime, connectionDetails) VALUES ($userId, $ip, $city, $region, $postalCode, $country_code, $longitude, $latitude, $timezone, $loginTime, $localLoginTime, $connectionDetails)`;
                     sequelize.query(sql, {
                         bind: {
                             userId: user.id,
                             ip: response.data.ip_address,
                             city: response.data.city,
                             region: response.data.region,
+                            postalCode: response.data.postal_code,
                             country_code: response.data.country_code,
                             longitude: response.data.longitude,
                             latitude: response.data.latitude,
-                            security: response.data.security.toString()
+                            timezone: response.data.timezone.name,
+                            loginTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+                            localLoginTime: new Date().toLocaleString('en-US', { timeZone: response.data.timezone.name }),
+                            connectionDetails: JSON.stringify(response.data.connection)
                         },
                         type: Sequelize.QueryTypes.INSERT
                     })
@@ -249,7 +253,7 @@ exports.login = async (req, res) => {
                 })
             });
         
-        
+        console.log('indianTime', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
         const token = await tokenService.generateAuthTokens(user)
 
         return res.status(200).json({
