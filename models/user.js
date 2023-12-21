@@ -45,10 +45,29 @@ const User = sequelize.define('User', {
     allowNull: false,
     defaultValue: false,
   },
-  // mobileNumber: {
-  //   type: DataTypes.STRING,
-  //   allowNull: false,
-  // }
+  mobileNumber: {
+    type: DataTypes.STRING,
+  },
+  isDeleted: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
+  isInactive: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
+  created_at: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: DataTypes.NOW,
+  },
+  updated_at: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: DataTypes.NOW,
+  },
 });
 
 module.exports = User;
