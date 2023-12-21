@@ -5,6 +5,7 @@ let bcrypt = require('bcrypt');
 let sendEmail = require('../utils/sendEmail');
 let jwt = require('jsonwebtoken')
 let tokenService = require('../services/token.service');
+const axios = require('axios');
 
 exports.registerUser = async (req, res) => {
     try {
@@ -215,6 +216,40 @@ exports.login = async (req, res) => {
             })
         }
 
+        axios.get(`${process.env.ABSTRACT_API_URL}/?api_key=${process.env.ABSTRACT_API_KEY}&ip_address=${req.clientIp}`)
+            .then(response => {
+                console.log(response.data);
+                // if (response.data.country_code !== 'IN') {
+                //     res.status(200).send({
+                //         success: false,
+                //         message: 'Only Indian users are allowed to login'
+                //     })
+                // }
+                if (response.data.city !== null) {
+                    let sql = `INSERT INTO LoginInfo (userId, ip, city, region, country_code, longitude, latitude, security) VALUES ($userId, $ip, $city, $region, $country_code, $longitude, $latitude, $security)`;
+                    sequelize.query(sql, {
+                        bind: {
+                            userId: user.id,
+                            ip: response.data.ip_address,
+                            city: response.data.city,
+                            region: response.data.region,
+                            country_code: response.data.country_code,
+                            longitude: response.data.longitude,
+                            latitude: response.data.latitude,
+                            security: response.data.security.toString()
+                        },
+                        type: Sequelize.QueryTypes.INSERT
+                    })
+                }
+            })
+            .catch(error => {
+                return res.status(400).json({
+                    success: false,
+                    message: error.message
+                })
+            });
+        
+        
         const token = await tokenService.generateAuthTokens(user)
 
         return res.status(200).json({
@@ -224,7 +259,6 @@ exports.login = async (req, res) => {
                 token
             }
         })
-
 
     } catch (error) {
         console.log(error)
