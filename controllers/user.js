@@ -252,8 +252,7 @@ exports.login = async (req, res) => {
                     message: error.message
                 })
             });
-        
-        console.log('indianTime', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+
         const token = await tokenService.generateAuthTokens(user)
 
         return res.status(200).json({

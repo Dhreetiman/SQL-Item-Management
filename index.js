@@ -6,6 +6,7 @@ require('dotenv').config()
 const requestIp = require('request-ip');
 const host = '0.0.0.0';
 const db_config = require('./configs/db');
+const mongoose = require('mongoose');
 
 const { Sequelize, DataTypes } = require('sequelize');
 
@@ -26,16 +27,22 @@ const sequelize = new Sequelize(db_config.development);
 // Test the connection
 sequelize.authenticate()
     .then(() => {
-        console.log('Connection has been established successfully.');
+        console.log('MySQL Connection has been established successfully.'.random.italic.bold);
     })
     .catch((error) => {
-        console.error('Unable to connect to the database:', error);
+        console.error('Unable to connect to the MySQL database:', error);
     });
 
-app.get('/get-ip', (req, res) => {
-    const clientIp = req.clientIp;
-    res.send(`Your IP address is: ${clientIp}`);
-});
+// MongoDB connection
+mongoose.connect(process.env.MONGO_URL)
+    .then(() => {
+        console.log('MongoDB connection established successfully.'.blue.italic.bold);
+    })
+    .catch((error) => {
+        console.error('Unable to connect to MongoDB:', error);
+    });
+
+
 
 // Routes
 app.use('/', require('./routes/index'));
@@ -45,13 +52,11 @@ app.use('/', require('./routes/index'));
 //!------------------------------------------------
 
 
-
-
 server.listen(PORT, host, async () => {
     try {
-        console.log(`Item-Management - Node server is up and running on : ${PORT}`)
+        console.log(`Swift-Shop - Node server is up and running on : ${PORT}`.rainbow.bold)
     } catch (error) {
-        console.log(`Item-Management - Error while starting node server : ${error}`)
+        console.log(`Swift-Shop - Error while starting node server : ${error}`)
     }
 });
 
