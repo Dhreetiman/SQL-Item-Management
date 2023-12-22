@@ -3,7 +3,8 @@ let {
     sendVerificationEmailAgain,
     verifyEmail,
     login,
-    info
+    info,
+    updateUser
 
 } = require('../controllers/user');
 
@@ -18,5 +19,6 @@ router.post('/send-verification', userValidator.verificationEmailValidate, sendV
 router.post('/verify-email', userValidator.verifyEmailValidator, verifyEmail)
 router.post('/login', userValidator.loginValidator, login);
 router.get('/info', auth, info);
+router.put('/update', auth, userValidator.updateUserValidator, updateUser);
 
 module.exports = router

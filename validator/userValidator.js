@@ -110,9 +110,35 @@ let loginValidator = async (req, res, next) => {
     }
 }
 
+let updateUserValidator = async (req, res, next) => {
+    try {
+        const dataToValidate = Joi.object({
+            fullname: Joi.string().max(255).min(3),
+            gender: Joi.string().valid('male', 'female', 'other'),
+            address: Joi.string().max(255).min(1),
+        });
+
+        const { error } = dataToValidate.validate(req.body, { abortEarly: false });
+
+        if (error) {
+            const message = error.details.map(i => i.message).join(',');
+            return res.status(400).json({ error: message });
+        }
+
+        next();
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+}
+
 module.exports = {
     validateUser,
     verificationEmailValidate,
     verifyEmailValidator,
-    loginValidator
+    loginValidator,
+    updateUserValidator
 };

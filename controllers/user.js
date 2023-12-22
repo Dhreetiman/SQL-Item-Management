@@ -304,4 +304,52 @@ exports.info = async (req, res) => {
     }
 }
 
+exports.updateUser = async (req, res) => {
+    try {
+        const { user } = req;
+        const { fullname, gender, address } = req.body;
+        
+        if (Object.keys(req.body).length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide at least one field to update'
+            });
+        }
 
+        let updateFields = [];
+        let bindValues = { id: user.id, updated_at: new Date().toISOString().slice(0, 19).replace('T', ' ') };
+
+        if (fullname !== undefined) {
+            updateFields.push('fullname = $fullname');
+            bindValues.fullname = fullname;
+        }
+
+        if (gender !== undefined) {
+            updateFields.push('gender = $gender');
+            bindValues.gender = gender;
+        }
+
+        if (address !== undefined) {
+            updateFields.push('address = $address');
+            bindValues.address = address;
+        }
+
+        let sql = `UPDATE User SET ${updateFields.join(', ')} WHERE id = $id`;
+
+        await sequelize.query(sql, {
+            bind: bindValues,
+            type: Sequelize.QueryTypes.UPDATE
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'User updated successfully'
+        });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
